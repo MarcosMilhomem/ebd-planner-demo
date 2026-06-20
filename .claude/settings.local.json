@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Marcos Milhomem\\\\Documents\\\\EBD-PlannerDEMO\\\\app\\\\dashboard\\\\alunos\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Marcos Milhomem\\\\Documents\\\\EBD-PlannerDEMO\\\\app\\\\dashboard\\\\usuarios\")"
+    ]
+  }
+}

@@ -1,0 +1,105 @@
+// EBD Planner — Demo (Portfólio)
+// Schema simplificado, alinhado ao CLAUDE.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  ADMIN_GERAL
+  GESTOR_SUBSEDE
+  PASTOR_CONGREGACAO
+  PROFESSOR
+}
+
+model Sede {
+  id        String    @id @default(cuid())
+  nome      String
+  subsedes  Subsede[]
+  usuarios  Usuario[] @relation("UsuarioSede")
+  createdAt DateTime  @default(now())
+}
+
+model Subsede {
+  id           String        @id @default(cuid())
+  nome         String
+  sedeId       String
+  sede         Sede          @relation(fields: [sedeId], references: [id])
+  congregacoes Congregacao[]
+  usuarios     Usuario[]     @relation("UsuarioSubsede")
+  createdAt    DateTime      @default(now())
+}
+
+model Congregacao {
+  id        String    @id @default(cuid())
+  nome      String
+  endereco  String?
+  subsedeId String
+  subsede   Subsede   @relation(fields: [subsedeId], references: [id])
+  turmas    Turma[]
+  usuarios  Usuario[] @relation("UsuarioCongregacao")
+  createdAt DateTime  @default(now())
+}
+
+model Turma {
+  id            String         @id @default(cuid())
+  nome          String
+  faixaEtaria   String?
+  congregacaoId String
+  congregacao   Congregacao    @relation(fields: [congregacaoId], references: [id])
+  professores   Usuario[]      @relation("ProfessorTurmas")
+  alunos        Aluno[]
+  registrosAula RegistroAula[]
+  createdAt     DateTime       @default(now())
+}
+
+model Usuario {
+  id            String       @id @default(cuid())
+  nome          String
+  email         String       @unique
+  papel         Papel
+  sedeId        String?
+  sede          Sede?        @relation("UsuarioSede", fields: [sedeId], references: [id])
+  subsedeId     String?
+  subsede       Subsede?     @relation("UsuarioSubsede", fields: [subsedeId], references: [id])
+  congregacaoId String?
+  congregacao   Congregacao? @relation("UsuarioCongregacao", fields: [congregacaoId], references: [id])
+  turmas        Turma[]      @relation("ProfessorTurmas")
+  createdAt     DateTime     @default(now())
+}
+
+model Aluno {
+  id             String     @id @default(cuid())
+  nome           String
+  dataNascimento DateTime?
+  turmaId        String
+  turma          Turma      @relation(fields: [turmaId], references: [id])
+  presencas      Presenca[]
+  createdAt      DateTime   @default(now())
+}
+
+model RegistroAula {
+  id        String     @id @default(cuid())
+  data      DateTime
+  licao     String
+  turmaId   String
+  turma     Turma      @relation(fields: [turmaId], references: [id])
+  presencas Presenca[]
+  createdAt DateTime   @default(now())
+}
+
+model Presenca {
+  id             String       @id @default(cuid())
+  presente       Boolean      @default(true)
+  alunoId        String
+  aluno          Aluno        @relation(fields: [alunoId], references: [id])
+  registroAulaId String
+  registroAula   RegistroAula @relation(fields: [registroAulaId], references: [id])
+
+  @@unique([alunoId, registroAulaId])
+}
