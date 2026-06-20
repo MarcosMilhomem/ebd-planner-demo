@@ -1,11 +1,10 @@
 # EBD Planner — Demo
 
 > Versão demonstrativa pública do EBD Planner, sistema de gestão para Escola Bíblica
-> Dominical (EBD) de igrejas. Criada para fins de portfólio — todos os dados são
-> fictícios.
+> Dominical (EBD) de igrejas. Criada para fins de portfólio — todos os dados são fictícios.
 
 🔗 **Demo ao vivo:** _[link após deploy na Vercel]_
-💻 **Código-fonte:** _[link do repositório]_
+💻 **Repositório:** [github.com/MarcosMilhomem/ebd-planner-demo](https://github.com/MarcosMilhomem/ebd-planner-demo)
 
 ---
 
@@ -29,10 +28,10 @@ lhe compete — sem perder a visão consolidada para quem está no topo da hiera
 
 - Gestão hierárquica: Sede → Subsede → Congregação → Turma
 - Controle de acesso baseado em papel (RBAC) com escopo de dados por nível
-- Cadastro de alunos por turma
-- Registro de aulas (lição + data) e lançamento de frequência
+- Cadastro de turmas, alunos e usuários (professores, pastores, gestores)
+- Registro de aulas (lição + data) e lançamento de frequência com checklist de presença
 - Login simplificado "de um clique" por papel, sem necessidade de cadastro
-- Reset automático de dados (cron job) para manter a demo sempre limpa
+- Reset automático de dados via cron job (diário) para manter a demo sempre limpa
 
 ---
 
@@ -54,9 +53,9 @@ Sede
 
 | Papel | Escopo | Permissões |
 |---|---|---|
-| Admin Geral | Sede | Acesso total: todas as Subsedes, Congregações e Turmas |
-| Gestor de Subsede | Subsede | Gerencia Congregações e Turmas da sua Subsede |
-| Pastor de Congregação | Congregação | Gerencia Turmas e Professores da sua Congregação |
+| Admin Geral | Sede | Acesso total: todas as Subsedes, Congregações, Turmas e Usuários |
+| Gestor de Subsede | Subsede | Gerencia Congregações, Turmas e Usuários da sua Subsede |
+| Pastor de Congregação | Congregação | Gerencia Turmas, Alunos e Professores da sua Congregação |
 | Professor | Turma | Lança frequência e gerencia alunos da sua Turma |
 
 O escopo de cada papel é resolvido a nível de query (não apenas de UI), garantindo
@@ -67,46 +66,116 @@ Subsede — mesmo manipulando a URL diretamente.
 
 | Camada | Tecnologia |
 |---|---|
-| Frontend + Backend | Next.js (App Router, TypeScript) |
-| ORM | Prisma |
-| Banco de dados | PostgreSQL serverless (Neon / Supabase) |
+| Frontend + Backend | Next.js 15 (App Router, TypeScript strict) |
+| ORM | Prisma 6 |
+| Banco de dados | PostgreSQL serverless (Neon) |
+| Autenticação | JWT via `jose` (cookie httpOnly) |
+| Testes | Vitest (19 testes unitários de RBAC) |
 | Deploy | Vercel (free tier) |
-| Reset de dados | Vercel Cron Job → rota `/api/reset-demo` |
+| Reset de dados | Vercel Cron Job → `POST /api/reset-demo` |
+
+### Estrutura de pastas
+
+```
+ebd-planner-demo/
+├── app/
+│   ├── (auth)/login/          → tela de login rápido por papel
+│   ├── dashboard/             → home + telas por papel (RBAC)
+│   │   ├── alunos/
+│   │   ├── congregacoes/
+│   │   ├── frequencia/
+│   │   ├── subsedes/
+│   │   ├── turmas/
+│   │   └── usuarios/
+│   └── api/                   → rotas REST (auth, turmas, alunos, usuários, aulas)
+├── components/
+│   ├── layout/sidebar.tsx
+│   └── ui/                    → button, input, modal
+├── lib/
+│   ├── auth.ts                → sessão JWT (login sem senha)
+│   ├── prisma.ts              → singleton do Prisma Client
+│   └── rbac.ts                → helpers de escopo e permissão
+├── prisma/
+│   ├── schema.prisma
+│   └── seed.ts                → dados fictícios
+├── __tests__/rbac.test.ts     → 19 testes unitários
+└── vercel.json                → cron job diário
+```
 
 ### Decisões técnicas relevantes
 
 - **Prisma Client como singleton** (`lib/prisma.ts`): evita esgotamento de conexões
-  em ambiente serverless, onde cada invocação de função poderia abrir uma nova
-  conexão com o banco.
-- **Login sem senha na demo**: como o objetivo é demonstração pública, a autenticação
-  real foi substituída por botões de "login rápido" por papel, usando usuários
-  fictícios pré-criados no seed. Isso elimina fricção para quem está avaliando o
-  projeto sem comprometer a demonstração do RBAC.
-- **Reset periódico via cron**: qualquer visitante pode alterar dados durante a
-  demonstração; um job agendado restaura o estado inicial automaticamente,
-  re-executando o script de seed.
-- **Dados 100% fictícios**: nomes, igrejas e endereços são genéricos, gerados
-  especificamente para esta demo — nenhum dado real de pessoa ou congregação é
-  utilizado.
+  em ambiente serverless, onde cada invocação poderia abrir uma nova conexão com o banco.
+- **Login sem senha na demo**: autenticação real substituída por botões de "login rápido"
+  por papel, usando usuários fictícios pré-criados no seed. Elimina fricção para avaliação
+  sem comprometer a demonstração do RBAC.
+- **RBAC resolvido na query**: os filtros Prisma (`where`) são gerados com base no papel
+  e escopo do usuário (`lib/rbac.ts`), garantindo isolamento real dos dados.
+- **Reset periódico via cron**: um Vercel Cron Job chama `/api/reset-demo` diariamente,
+  re-executando o seed e restaurando o estado inicial da demo.
+- **Dados 100% fictícios**: nomes, igrejas e endereços são genéricos — nenhum dado real
+  de pessoa ou congregação é utilizado.
 
 ---
 
 ## Como rodar localmente
 
+### Pré-requisitos
+
+- Node.js 18+
+- Conta no [Neon](https://neon.tech) ou [Supabase](https://supabase.com) (PostgreSQL gratuito)
+
+### Passos
+
 ```bash
-git clone <repo>
+git clone https://github.com/MarcosMilhomem/ebd-planner-demo.git
 cd ebd-planner-demo
 npm install
 
-# configurar variável de ambiente
+# Configurar variáveis de ambiente
 cp .env.example .env
-# editar DATABASE_URL com sua connection string (Neon/Supabase)
+# Edite o .env com sua DATABASE_URL, SESSION_SECRET e CRON_SECRET
+```
 
+### Variáveis de ambiente
+
+```env
+# Connection string do Neon ou Supabase (obrigatório)
+DATABASE_URL="postgresql://user:password@host/database?sslmode=require"
+
+# Segredo JWT para cookies de sessão (mín. 32 chars)
+# Gere com: openssl rand -base64 32
+SESSION_SECRET="seu-segredo-forte-aqui"
+
+# Segredo para proteger a rota /api/reset-demo
+CRON_SECRET="outro-segredo-forte"
+```
+
+```bash
+# Rodar migration e seed
 npx prisma migrate dev
 npx prisma db seed
 
+# Iniciar servidor de desenvolvimento
 npm run dev
 ```
+
+Acesse `http://localhost:3000` e clique em um dos botões de login rápido.
+
+### Testes
+
+```bash
+npm run test:run
+# 19 testes unitários de RBAC — todos passando
+```
+
+---
+
+## Deploy na Vercel
+
+1. Importe o repositório em [vercel.com/new](https://vercel.com/new)
+2. Adicione as variáveis de ambiente nas configurações do projeto
+3. O `vercel.json` já configura o cron job automaticamente
 
 ---
 
@@ -125,5 +194,4 @@ construído com FastAPI + Prisma, incluindo recursos adicionais como:
 ## Sobre
 
 Projeto desenvolvido por **Marcos Milhomem** como parte de um portfólio de sistemas
-voltados à gestão de organizações com estrutura hierárquica e controle de acesso
-granular.
+voltados à gestão de organizações com estrutura hierárquica e controle de acesso granular.
